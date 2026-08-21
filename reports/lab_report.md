@@ -10,7 +10,7 @@ Xây dựng quy trình MLOps từ huấn luyện cục bộ đến CI/CD: theo d
 - Hoàn thiện unit tests trong `tests/test_train.py`.
 - Hoàn thiện `src/serve.py` với `/health` và `/predict`, kiểm tra đúng 12 features.
 - Hoàn thiện workflow 4 jobs: Unit Test → Train → Eval → Deploy.
-- Khởi tạo DVC, tạo pointer cho ba dataset và cấu hình remote GCS dạng template; credential được lấy từ GitHub Secrets, không lưu trong Git.
+- Khởi tạo DVC, tạo pointer cho ba dataset và cấu hình remote GCS `gs://vinuni-lab16-phong-2026-mlops/dvc`; credential được lấy từ GitHub Secrets/local ignored config, không lưu trong Git.
 
 ## 3. Thí nghiệm và đánh giá
 
@@ -32,6 +32,8 @@ Khi mô phỏng Bước 3 bằng cách gộp thêm 2998 mẫu (`2998 → 5996`),
 - `dvc status`: **Data and pipelines are up to date.**
 - FastAPI local smoke test: `/health` trả `{"status":"ok"}`; `/predict` trả `{"prediction":0,"label":"thap"}` với request 12 features.
 
-## 5. Kết luận và phần cần xác nhận trên cloud
+## 5. Kết luận và minh chứng cloud
 
-Phần code, unit test, MLflow, DVC metadata, workflow và API đã được hoàn thiện trong repo. Tuy nhiên workspace hiện không có GCP credential, bucket, VM hoặc GitHub Secrets nên chưa thể xác nhận bằng chứng cloud thật: `dvc push`, 4 jobs màu xanh trên GitHub, Cloud Storage Console và VM public IP. Sau khi điền 5 secrets theo `tasks/buoc-2.md`, chạy `dvc push` rồi `git push`, cần bổ sung các screenshot cloud vào thư mục `evidence/`.
+Phần code, unit test, MLflow, DVC metadata, workflow và API đã được hoàn thiện trong repo. DVC đã push thành công dữ liệu B2 và dữ liệu B3 lên bucket GCS. Lần chạy GitHub Actions B2 xác nhận Unit Test và Train đạt, còn Eval chặn accuracy 0.6800; ảnh minh chứng được lưu tại `evidence/04-eval-gate-failed-0.68.png`.
+
+Sau khi thêm dữ liệu B3, pointer `data/train_phase1.csv.dvc` đã đổi sang phiên bản 5996 mẫu và object mới đã được `dvc push` lên GCS. Kết quả local tương ứng là accuracy 0.7500 và weighted F1 0.7486, đủ vượt gate 0.70. Cần commit/push pointer này lên GitHub để chạy xác nhận cuối cùng: bốn jobs xanh và Deploy lên VM.
