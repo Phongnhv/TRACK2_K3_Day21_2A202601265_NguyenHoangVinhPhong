@@ -36,4 +36,6 @@ Khi mô phỏng Bước 3 bằng cách gộp thêm 2998 mẫu (`2998 → 5996`),
 
 Phần code, unit test, MLflow, DVC metadata, workflow và API đã được hoàn thiện trong repo. DVC đã push thành công dữ liệu B2 và dữ liệu B3 lên bucket GCS. Lần chạy GitHub Actions B2 xác nhận Unit Test và Train đạt, còn Eval chặn accuracy 0.6800; ảnh minh chứng được lưu tại `evidence/04-eval-gate-failed-0.68.png`.
 
-Sau khi thêm dữ liệu B3, pointer `data/train_phase1.csv.dvc` đã đổi sang phiên bản 5996 mẫu và object mới đã được `dvc push` lên GCS. Kết quả local tương ứng là accuracy 0.7500 và weighted F1 0.7486, đủ vượt gate 0.70. Cần commit/push pointer này lên GitHub để chạy xác nhận cuối cùng: bốn jobs xanh và Deploy lên VM.
+Sau khi thêm dữ liệu B3, pointer `data/train_phase1.csv.dvc` đã đổi sang phiên bản 5996 mẫu và object mới đã được `dvc push` lên GCS. Kết quả local tương ứng là accuracy 0.7500 và weighted F1 0.7486, đủ vượt gate 0.70. Pipeline GitHub Actions chạy thành công cả bốn jobs `Unit Test → Train → Eval → Deploy`. API trên VM trả kết quả `/predict` hợp lệ và GCS hiển thị `models/latest/model.pkl`.
+
+Các minh chứng cloud được lưu trong thư mục `evidence/`: `05-vm-api.png`, `06-github-actions-success.png` và `07-model-cloud-storage.png`. Ảnh quality gate Bước 2 bị chặn đúng ngưỡng được lưu tại `04-eval-gate-failed-0.68.png`.
