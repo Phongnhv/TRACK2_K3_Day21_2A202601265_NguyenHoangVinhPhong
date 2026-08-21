@@ -46,8 +46,7 @@ Workflow YAML parsed; four jobs found.
 
 ```text
 Bước 3: dvc add data/train_phase1.csv sau khi 2998 -> 5996 mẫu
-pointer mới: md5=5853e7711c78f02286e65fca6cb6e124, size=368068
-Khôi phục dataset phase 1 và dvc add lại
-pointer cuối: md5=c43afab731fd6431a94f888fdc687876, size=184090
+pointer B3: md5=5853e7711c78f02286e65fca6cb6e124, size=368068
+Dữ liệu phase 2 đã được dvc push lên GCS và pointer này là trạng thái cuối của repo.
 dvc status: Data and pipelines are up to date.
 ```
