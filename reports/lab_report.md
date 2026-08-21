@@ -2,40 +2,66 @@
 
 ## 1. Mục tiêu
 
-Xây dựng quy trình MLOps từ huấn luyện cục bộ đến CI/CD: theo dõi thí nghiệm bằng MLflow, quản lý dữ liệu bằng DVC, kiểm tra chất lượng qua GitHub Actions và phục vụ model bằng FastAPI trên Cloud VM.
+Xây dựng quy trình MLOps cho bài toán phân loại chất lượng rượu vang: theo dõi thí nghiệm bằng MLflow, quản lý dữ liệu bằng DVC, tự động kiểm thử/huấn luyện/đánh giá/triển khai bằng GitHub Actions và phục vụ model qua FastAPI trên Google Compute Engine.
 
 ## 2. Kết quả triển khai
 
-- Hoàn thiện `src/train.py`: đọc dữ liệu, train Random Forest, log params/metrics/model lên MLflow, tạo `outputs/metrics.json` và `models/model.pkl`.
-- Hoàn thiện unit tests trong `tests/test_train.py`.
-- Hoàn thiện `src/serve.py` với `/health` và `/predict`, kiểm tra đúng 12 features.
-- Hoàn thiện workflow 4 jobs: Unit Test → Train → Eval → Deploy.
-- Khởi tạo DVC, tạo pointer cho ba dataset và cấu hình remote GCS `gs://vinuni-lab16-phong-2026-mlops/dvc`; credential được lấy từ GitHub Secrets/local ignored config, không lưu trong Git.
+- `src/train.py`: huấn luyện Random Forest, ghi params và metrics (`accuracy`, `f1_score`) vào MLflow, tạo `outputs/metrics.json` và `models/model.pkl`.
+- `src/serve.py`: cung cấp `GET /health` và `POST /predict`, kiểm tra đúng 12 features.
+- `tests/test_train.py`: 3 unit tests kiểm tra kết quả train, metrics và model artifact.
+- DVC quản lý ba dataset; remote được cấu hình tại `gs://vinuni-lab16-phong-2026-mlops/dvc`.
+- GitHub Actions gồm bốn jobs: `Unit Test → Train → Eval → Deploy`.
+- VM `mlops-serve` chạy FastAPI và lấy model mới nhất từ GCS.
 
-## 3. Thí nghiệm và đánh giá
+## 3. Thí nghiệm và chất lượng model
 
-| Run | n_estimators | max_depth | min_samples_split | Accuracy | F1 weighted |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 100 | 5 | 2 | 0.5640 | 0.5534 |
-| 2 | 50 | 3 | 2 | 0.5580 | 0.5185 |
-| 3 | 200 | 10 | 5 | 0.6440 | 0.6417 |
-| 4 — tốt nhất | 500 | None | 5 | 0.6800 | 0.6786 |
+Các thí nghiệm local được ghi nhận bằng MLflow. Bộ tham số tốt nhất được lưu trong `params.yaml`:
 
-Cấu hình tốt nhất được lưu trong `params.yaml`. Tăng số cây và bỏ giới hạn độ sâu giúp model biểu diễn tốt hơn trên tập đánh giá, nhưng với đúng 2998 mẫu của Bước 2 accuracy thực tế vẫn dưới ngưỡng CI `0.70`; eval gate vì vậy phải chặn deploy, đúng thiết kế an toàn.
+```yaml
+n_estimators: 500
+max_depth: null
+min_samples_split: 5
+```
 
-Khi mô phỏng Bước 3 bằng cách gộp thêm 2998 mẫu (`2998 → 5996`), cùng cấu hình đạt `accuracy=0.7500`, `f1_score=0.7486`, vượt eval gate.
+Với dữ liệu Bước 2 gồm 2998 mẫu, kết quả tốt nhất là:
 
-## 4. Kiểm thử
+```text
+accuracy = 0.6800
+f1_score = 0.6786
+```
 
-- `pytest tests/ -v`: **3 passed**.
-- `python -m compileall -q src tests generate_data.py add_new_data.py`: đạt.
-- `dvc status`: **Data and pipelines are up to date.**
-- FastAPI local smoke test: `/health` trả `{"status":"ok"}`; `/predict` trả `{"prediction":0,"label":"thap"}` với request 12 features.
+Do accuracy thấp hơn ngưỡng `0.70`, Eval gate đã chặn Deploy. Đây là hành vi đúng theo thiết kế CI/CD và được minh chứng tại `evidence/04-eval-gate-failed-0.68.png`.
 
-## 5. Kết luận và minh chứng cloud
+Ở Bước 3, `train_phase2.csv` được bổ sung vào dữ liệu train, nâng số mẫu từ 2998 lên 5996. Kết quả:
 
-Phần code, unit test, MLflow, DVC metadata, workflow và API đã được hoàn thiện trong repo. DVC đã push thành công dữ liệu B2 và dữ liệu B3 lên bucket GCS. Lần chạy GitHub Actions B2 xác nhận Unit Test và Train đạt, còn Eval chặn accuracy 0.6800; ảnh minh chứng được lưu tại `evidence/04-eval-gate-failed-0.68.png`.
+```text
+accuracy = 0.7500
+f1_score = 0.7486
+```
 
-Sau khi thêm dữ liệu B3, pointer `data/train_phase1.csv.dvc` đã đổi sang phiên bản 5996 mẫu và object mới đã được `dvc push` lên GCS. Kết quả local tương ứng là accuracy 0.7500 và weighted F1 0.7486, đủ vượt gate 0.70. Pipeline GitHub Actions chạy thành công cả bốn jobs `Unit Test → Train → Eval → Deploy`. API trên VM trả kết quả `/predict` hợp lệ và GCS hiển thị `models/latest/model.pkl`.
+Model mới vượt Eval gate và được triển khai thành công.
 
-Các minh chứng cloud được lưu trong thư mục `evidence/`: DVC tại `02-dvc-cloud-storage.png`, API tại `05-vm-api.png`, pipeline B2 tại `06-github-actions-success.png`, pipeline B3 được kích hoạt bởi commit dữ liệu tại `07-github-actions-step3-data-trigger.png`, và model tại `07-model-cloud-storage.png`. Ảnh quality gate Bước 2 bị chặn đúng ngưỡng được lưu tại `04-eval-gate-failed-0.68.png`.
+## 4. Kiểm thử và minh chứng
+
+- `python -m pytest tests/ -q`: **3 passed**.
+- Workflow YAML: hợp lệ, đủ 4 jobs.
+- `dvc status`: **Data and pipelines are up to date**.
+- DVC push thành công lên GCS.
+- API VM trả kết quả dự đoán hợp lệ: `prediction=0`, `label=thap`.
+- GCS chứa `models/latest/model.pkl`.
+- Run B3 được kích hoạt bởi commit dữ liệu `4001541` với event `push`; cả bốn jobs hoàn thành thành công.
+
+Minh chứng chính:
+
+- `evidence/02-dvc-cloud-storage.png`
+- `evidence/04-eval-gate-failed-0.68.png`
+- `evidence/05-vm-api.png`
+- `evidence/06-github-actions-success.png`
+- `evidence/07-github-actions-step3-data-trigger.png`
+- `evidence/07-model-cloud-storage.png`
+
+## 5. Kết luận
+
+Bài lab đã hoàn thiện quy trình từ tracking experiment, versioning dữ liệu, CI/CD quality gate đến triển khai model liên tục trên VM. Eval gate bảo đảm model chưa đạt accuracy 0.70 không được triển khai; sau khi bổ sung dữ liệu, model đạt 0.75 và được deploy tự động thành công.
+
+Các cảnh báo Node.js trong GitHub Actions chỉ là cảnh báo deprecation của action dependency, không ảnh hưởng đến kết quả pipeline. Ảnh MLflow hiện có chứng minh việc ghi params/metrics cho các run; phần comparison UI giữa các hyperparameters chưa được bổ sung riêng trong bộ ảnh nộp.
