@@ -1,0 +1,4 @@
+[core]
+    remote = myremote
+['remote "myremote"']
+    url = gs://vinuni-lab16-phong-2026-mlops/dvc
